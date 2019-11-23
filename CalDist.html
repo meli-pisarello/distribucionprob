@@ -1,0 +1,439 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CALDIST</title>         
+    <meta name="Description" content="Calculadora de Distribución de Probabilidad"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Pisarello, Melina & Canteros, Luciano">
+    <link href="https://fonts.googleapis.com/css?family=Lato:400,700,900&display=swap" rel="stylesheet">   
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+    <style type=text/css>
+        * {
+            margin: 0;
+            padding: 0;            
+        }
+        body {
+            font-family: "Lato", "Helvetica";
+            font-size: 16px;
+            font-weight: 400;
+        }
+        nav {
+            margin-bottom:1rem;
+            background-color: #6200EE;
+            background: linear-gradient(169deg, rgba(229,46,113,1) 0%, rgba(0,212,255,1) 100%);
+            font-size: 1.2rem;
+        }
+        .btn {
+            padding: 1rem 2rem;
+            display: inline-block;
+            color: white;
+            cursor: pointer;
+            font-weight: 400;
+            text-transform: uppercase;
+            font-size: 1rem;
+        }
+        .btn.selected {
+            color: white;
+            background-color: #ff8a00;
+        }
+        #title {
+            display: block;
+            background-color: #353535;
+            color: #ff8a00;
+            font-size: 1.2rem;
+            margin: 0;
+            padding: 20px;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        form {
+            font-weight: 700;
+            display: none;
+            font-size: 16px;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
+        form.active {
+            display: flex;
+        }
+        form label, form input {
+            margin: 10px;
+        }
+        input {
+            max-width: 60px;
+            padding: 10px;
+            border-radius: 20px;
+            border-color: grey;
+            border-style: solid;
+            border-width: 2px;
+        }
+        input:focus {
+            outline: none;        } 
+
+        .submit {
+            background-color: rgba(229,46,113,1);
+            color: white;
+            font-weight: 700;
+            padding: 10px 30px;
+            margin: 10px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .submit:hover {
+            background-color: #ff8a00;
+        }
+        table {
+            min-width: 400px;
+            text-align: center;
+            margin: auto;
+        }
+        #container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-column-gap: 40px;
+            margin: 40px 50px;
+        }
+        th {
+            background-color: #ff8a00;
+            color: white;
+            padding: 0.5rem;
+            font-weight: 700;
+        }
+        td {
+           padding: 0.5rem 1rem 0.5rem 1rem;
+           text-align: left;
+           letter-spacing: 0.05rem;
+        }
+        tr:nth-child(odd) {
+            background-color: rgb(252, 230, 209);
+        }       
+    </style>
+</head>
+<body>
+    <span id="title">Distribución de Probabilidades</span>
+    <nav>
+        <span class="btn selected" id="b" onclick="selectOption('b')">Binomial</span>
+        <span class="btn" id="p" onclick="selectOption('p')">Poisson</span>
+        <span class="btn" id="h" onclick="selectOption('h')">Hipergeométrica</span>
+    </nav>
+
+    <form action="#" id="bf" class="active">
+        <div>
+            <label for="muestra">Tamaño de la muestra:</label>
+            <input type="number" name="muestra" id="muestra" onkeypress="enter()">
+        </div>
+        <div>
+            <label for="probabilidad">Probabilidad de éxito:</label>
+            <input type="number" name="probabilidad" id="probabilidad" min="0" 
+            max="1" step="0.01" onkeypress="enter()">
+        </div>        
+        <span class="submit" onclick="paintChart()">Calcular</span>
+    </form>
+
+    <form action="#" id="pf">
+        <div>
+            <label for="media">Frecuencia promedio:</label>
+            <input type="number" name="media" id="media" onkeypress="enter()">
+        </div>
+        <div>
+            <label for="k">Variables a visualizar:</label>
+            <input type="number" name="ensayos" id="ensayos" onkeypress="enter()">
+        </div>        
+        <span class="submit" onclick="paintChart()">Calcular</span>
+    </form>
+
+    <form action="#" id="hf">
+        <div>
+            <label for="poblacion">Tamaño de población:</label>
+            <input type="number" name="poblacion" id="poblacion" onkeypress="enter()">
+        </div>
+        <div>
+            <label for="especial">Casos especiales:</label>
+            <input type="number" name="especial" id="especial" onkeypress="enter()">
+        </div>
+        <div>
+            <label for="muestra">Tamaño de muestra:</label>
+            <input type="number" name="muestra" id="muestra" onkeypress="enter()">
+        </div>
+        <div>
+            <label for="eventos">Número de eventos:</label>
+            <input type="number" name="eventos" id="eventos" onkeypress="enter()">
+        </div>
+        <span class="submit" onclick="paintChart()">Calcular</span>
+    </form>
+
+    <div id="container">
+        <div id="canvas-container">
+            <canvas id="myChart"></canvas>
+        </div>
+        <div id="table-container">
+            <table id="results">
+                <tr>
+                    <th>x</th>
+                    <th>P(Y = x)</th>
+                    <th>P(Y<=R)</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>       
+        var t = document.getElementById("results");
+        var chart;
+        var option = "b";
+
+        // manejar la selección de distribución
+        function selectOption(option) {
+
+            // botones            
+            const btn = document.getElementsByClassName("btn"); 
+            for (let b of btn)
+                b.classList.remove("selected");  
+            document.getElementById(option).classList.add("selected");
+            this.option = option;
+
+            // formularios      
+            const forms = document.getElementsByTagName("form"); 
+            for (f of forms)
+                f.classList.remove("active");    
+            document.getElementById(option+"f").classList.add("active");
+        }
+
+        // manejar el submit con la tecla enter
+        function enter() {
+            if(event.key === 'Enter')
+                paintChart();
+        }
+        
+        // calcular factorial de n recursivamente 
+        function factorial(n) {
+            if (n === 0) return 1
+            else return n * factorial(n-1);
+        }
+        
+        // calcular combinatoria de dos parámetros recibidos
+        function combinatoria(n, x) {
+            if (n >= 0 && x >= 0 && n >= x)
+                return factorial(n) / ( factorial(n-x) * factorial(x) ); 
+            else return null;
+        }
+        
+        // calcular potencia
+        function pw(b, e) {
+            return Math.pow(b, e);
+        }
+
+        // Crear un array de objetos con las propiedades x, p(x) y el acumulado
+        function binomial() {
+
+            // obtener los datos ingresados
+            const form = document.getElementById("bf");
+            const n = parseInt(form.elements.muestra.value);
+            const p = parseFloat(form.elements.probabilidad.value);
+            let x = [];
+            const q = 1 - p;
+            let count = 0;
+
+            if( n < 0 || p < 0)
+                alert("Error: los datos ingresados deben ser mayores o iguales a 0");
+            else if (p > 1)
+                alert("Error: el valor de probabilidad no puede ser mayor a 1");
+            else
+                // popular el array ternario
+                for (let i = 0; i <= n; i++ ) {           
+                    let px = combinatoria(n, i) * pw(p, i) * pw(q, n-i);
+                    x.push([
+                        i,
+                        px,
+                        count += px
+                    ]);
+                }
+
+            return x;        
+        }
+
+        function poisson() {
+            // obtener los datos ingresados
+            const form = document.getElementById("pf");
+            const a = parseFloat(form.elements.media.value);
+            const k = parseInt(form.elements.ensayos.value);
+
+            let x = [];
+            const e = 2.7182818284590452353602874713527;
+
+            let count = 0;
+
+            // popular el array ternario
+            if(a < 0 || k < 0)
+                alert("Error: los datos ingresados deben ser mayores o iguales a 0");
+            else
+                for (let i = 0; i <= k; i++ ) {           
+                    let px = pw(e, a*-1) * pw(a, i) / factorial(i);
+                    x.push([
+                        i,
+                        px,
+                        count += px
+                    ]);
+                }
+
+            return x;  
+        }
+
+        function hiper() {
+            // obtener los datos ingresados
+            const form = document.getElementById("hf");
+            const N = parseInt(form.elements.poblacion.value);
+            const X = parseInt(form.elements.especial.value);
+            const n = parseInt(form.elements.muestra.value);
+            const x = parseInt(form.elements.eventos.value);
+
+            let k = [];
+            let count = 0;
+
+            // validar datos y popular el array ternario
+            if(N < 0 || X < 0 || n < 0 || x < 0)
+                alert("Error: los datos ingresados deben ser mayores o iguales a 0");
+            else if (N < X) 
+                alert("Error: la cantidad de casos expeciales no puede ser mayor a la población");
+            else if (N < n)
+                alert("Error: la muestra no puede ser mayor a la población");
+            else if (n < x)
+                alert("Error: la cantidad de eventos no puede ser mayor a la muestra");    
+            else {
+                for (let i = 0; i <= x; i++ ) {        
+                    let px = combinatoria(X,i) * combinatoria(N-X, n-i) / combinatoria(N, n);
+                    k.push([
+                        i,
+                        px,
+                        count += px
+                    ]);
+                }
+            }
+            return k;  
+        }
+
+        // añadir los datos recolectados al data del gráfico
+        function addData(c, label, data) {           
+            for (let x in data) {
+                c.data.labels.push(label[x]);
+                c.data.datasets[0].data.push(data[x]);       
+            }
+            chart.update();  
+        }
+
+        // establecer tamaño del chart
+        function chartSize(width, height) {
+            chart.canvas.parentNode.style.width = width;
+            chart.canvas.parentNode.style.height = height;
+        }
+
+        // pintar el gráfico de barra en el canvas
+        function paintChart() {
+            // obtener los datos para el chart 
+            let x;
+            switch (option) {
+                case "p": 
+                    x = poisson(); break;
+                case "h": 
+                    x = hiper(); break;
+                default :
+                    x = binomial();
+            }
+
+            // limpiar el chart si está cargado
+            if (chart.data.datasets[0].data.length) {
+                removeData(chart);
+            }
+
+            // popular los datos del chart
+            let labelChart = [], dataChart = [];
+            x.forEach(k => {
+                labelChart.push(k[0]);
+                dataChart.push(k[1]);
+            });
+
+            addData(chart, labelChart, dataChart);
+            paintTable(x);            
+        }
+
+        // limpiar los datos almacenados en el data del gráfico
+        function removeData(c) {
+            c.data.labels = [];
+            c.data.datasets[0].data = [];
+        }
+
+        // pintar la tabla con los valores de x, p(x) y el acumulado
+        function paintTable(x) {
+            if (t.rows.length > 0)
+                cleanTable();
+            for ( let k = 0; k < x.length; k++ ) {
+                let row = t.insertRow(k+1);
+                for ( let i = 0; i < 3; i++ ) {
+                    let cell = row.insertCell(i);
+                    cell.innerHTML = x[k][i];
+                }
+            }
+        }
+
+        // limpiar tabla 
+        function cleanTable() {
+            for (let i = t.rows.length-1; i > 0; i-- )  {
+                t.deleteRow(i);
+            }
+        }
+
+        // crear un chart vacío al cargar la ventana
+        window.onload = function () {
+            var ctx = document.getElementById('myChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                options: {
+                    legend: {
+                        display: false
+                    },
+                    responsive: true,
+                    scales: {
+                        xAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'x'
+                            },
+                            ticks: {
+                                beginAtZero: true
+                            }
+                        }],
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'P(x)'
+                            },
+                            ticks: {
+                                beginAtZero: true
+                            }
+                        }]
+                    },
+                    maintainAspectRatio: false,
+                    animation: {
+                        easing: 'easeInOutSine'
+                    }
+                },
+                data: {
+                    datasets: [{
+                        barThickness: 2,
+                        maxBarThickness: 3,
+                        minBarLength: 2,
+                        backgroundColor : "rgba(229,46,113,0.8)",
+                    }]
+                }
+            });
+
+            // establecer tamaño del chart
+            chartSize("100%","400px");           
+        }
+    </script>
+</body>
+</html>
